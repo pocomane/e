@@ -433,9 +433,9 @@ int e_script_meta_command(e_context* ctx, const char* cmd) {
   return 0;
 }
 
+
 e_context* e_script_expression_prompt(e_context* ctx) {
-  e_context* new = e_context_copy(ctx);
-  new->history = ctx;
+  e_context* new = e_history_forward(ctx);
   char* lua_exp = e_prompt(new, "Type Lua expression: %s", NULL);
   if (!lua_exp) return new;
   char* evald = e_script_eval(new, lua_exp);

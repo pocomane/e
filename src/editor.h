@@ -96,8 +96,9 @@ void e_replace_all(e_context*);
 long long e_context_size(e_context*);
 void e_context_free(e_context*);
 void e_set_highlighting(e_context*, syntax**);
-e_context* e_context_copy(e_context*);
 e_context* e_setup();
+e_context* e_history_forward(e_context*);
+e_context* e_history_backward(e_context*);
 
 void enable_raw_mode(e_context*);
 void disable_raw_mode(e_context*);

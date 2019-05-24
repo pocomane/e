@@ -90,7 +90,7 @@ void e_draw_rows(e_context* ctx, append_buf* ab) {
 void e_draw_status(e_context* ctx, append_buf* ab) {
 
   color_append(YELLOW_BG, ab, "", 0);
-  color_append(BLACK, ab, "EDIT mode ", 10);
+  color_append(BLACK, ab, "EDITING ", 8);
 
   color_append(BLACK_BG, ab, " ", 1);
   color_append(WHITE, ab, "", 0);
@@ -104,7 +104,7 @@ void e_draw_status(e_context* ctx, append_buf* ab) {
                       ctx->cy+1, ctx->nrows,
                       utf8len_to(ctx->row[ctx->cy].str, ctx->cx)+1);
   color_append(WHITE, ab, status, len);
-  len += 12;
+  len += 10;
 
   while (len < ctx->cols) {
     if (ctx->cols-len == rlen) {
@@ -327,18 +327,15 @@ e_context* e_command(e_context* ctx) {
     } else if (!strcmp(c, "/") || !strcmp(c, "find")) {
       e_find(ctx);
     } else if (!strcmp(c, "r") || !strcmp(c, "replace")) {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       e_replace(new);
       return new;
     } else if (!strcmp(c, "R") || !strcmp(c, "replaceall")) {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       e_replace_all(new);
       return new;
     }  else if (!strcmp(c, "h") || !strcmp(c, "cutline")) {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       e_clipboard_copy(new->row[new->cy].str);
       if (new->nrows == 1) {
         e_insert_row(new, 1, (char*) "", 0);
@@ -346,21 +343,14 @@ e_context* e_command(e_context* ctx) {
       e_del_row(new, new->cy);
       return new;
     } else if (!strcmp(c, "u") || !strcmp(c, "undo")) {
-      if (ctx->history) {
-        e_context* new = ctx->history;
-        ctx->history = NULL;
-        e_context_free(ctx);
-        return new;
-      }
-      e_set_status_msg(ctx, "Already at oldest change.");
+      return e_history_backward(ctx);
     } else if (!strcmp(c, "c") || !strcmp(c, "copy")) {
       e_clipboard_copy(ctx->row[ctx->cy].str);
     } else if (!strcmp(c, "v") || !strcmp(c, "paste")) {
       char* str = e_clipboard_paste();
       // To prevent from crushing in linux
       if ( !str ) { return ctx; }
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       int i = 0;
       while (str[i] != '\0') {
         if (str[i] == '\n' || str[i] == '\r') e_insert_newline(new);
@@ -398,16 +388,14 @@ e_context* e_edit(e_context* ctx, int c) {
      break;
     case '\r':
     case '\n': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       e_insert_newline(new);
       return new;
     }
     case BACKSPACE:
     case CTRL('h'):
     case DEL_KEY: {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       if (c == DEL_KEY) e_move_cursor(new, ARROW_RIGHT);
       e_del_char(new);
       return new;
@@ -415,14 +403,12 @@ e_context* e_edit(e_context* ctx, int c) {
     case CTRL('l'):
       break;
     case '\t': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       for (i = 0; i < ctx->tab_width; i++) e_insert_char(new, ' ');
       return new;
     }
     default: {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
+      e_context* new = e_history_forward(ctx);
       e_insert_char(new, c);
       return new;
     }
@@ -983,7 +969,8 @@ void e_context_free(e_context* ctx) {
   free(ctx);
 }
 
-e_context* e_context_copy(e_context* ctx) {
+
+e_context* e_history_forward(e_context* ctx) {
   e_context* new = malloc(sizeof(e_context));
   new->orig = ctx->orig;
   new->cols = ctx->cols;
@@ -1020,11 +1007,25 @@ e_context* e_context_copy(e_context* ctx) {
 
   new->history = ctx->history;
 
-
   new->stx = ctx->stx;
   new->stxes = ctx->stxes;
 
+
+  new->history = ctx;
   return new;
+}
+
+
+e_context* e_history_backward(e_context* ctx) {
+  if (!ctx->history) {
+    e_set_status_msg(ctx, "Already at oldest change.");
+  } else {
+    e_context* new = ctx->history;
+    ctx->history = NULL;
+    e_context_free(ctx);
+    ctx = new;
+  }
+  return ctx;
 }
 
 
