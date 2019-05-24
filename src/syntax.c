@@ -155,35 +155,95 @@ syntax* syntax_read_file(char* fname) {
 }
 
 
-syntax** syntax_init(char* dir) {
-  int retl = 1;
-  DIR* dp = opendir(dir);
-  char fname[MAX_LINE_WIDTH];
-  struct dirent* ep;
-  syntax** ret = malloc(sizeof(syntax*));
+syntax** syntax_init(syntax** ret, int *retl, char* path) {
+
+  // TODO : CLEAN-UP !!!
+
+  if (ret == 0 || *retl == 0){
+    *retl = 1;
+    ret = malloc(sizeof(syntax*));
+  }
   syntax* c;
 
-  if (!dp) return NULL;
+  FILE* f = fopen(path, "r");
 
-  while ((ep = readdir(dp))) {
-    if (!strcmpr(ep->d_name, (char*) ".stx")) continue;
-    snprintf(fname, sizeof(fname), "%s/%s", dir, ep->d_name);
-    c = syntax_read_file(fname);
+  while (f != NULL) {
+
+    c = NULL;
+    do {
+      char* key;
+      char* value;
+      char* line = malloc(MAX_LINE_WIDTH);
+      size_t ln;
+      int lineno = 0;
+
+      if (!f) { c = NULL; break; }
+
+      c = malloc(sizeof(syntax));
+      c->patterns = NULL;
+      c->ftype = NULL;
+      c->filematch = NULL;
+      c->npatterns = 0;
+
+      void * fg;
+      while (1) {
+        fg = fgets(line, MAX_LINE_WIDTH, f);
+        if (!fg) {
+          break;
+        }
+
+        ln = strlen(line)-1;
+        if (ln == -1) continue;
+        lineno++;
+        line[ln] = '\0'; // replace newline
+        key = strtok(line, ":");
+        if (key && !strncmp(key, "split", 5)) {
+          break;
+        }
+        value = strtok(NULL, ":");
+        if (key && !strncmp(key, "displayname", 11)) {
+          c->ftype = strdup(strtriml(value));
+        } else if (key && !strncmp(key, "extensions", 10)) {
+          if (syntax_read_extensions(c, f, path, lineno, strtriml(value))) {
+            fclose(f);
+            free(line);
+            syntax_free(c);
+            c = NULL;
+            break;
+          }
+        } else {
+          if (value) {
+            if (syntax_read_pattern(c, f, path, lineno, key, strtriml(value))) {
+              fclose(f);
+              free(line);
+              syntax_free(c);
+              c = NULL;
+              break;
+            }
+          }
+        }
+      }
+
+      free(line);
+      if (!fg) {
+        fclose(f);
+        f = NULL;
+      }
+    } while(0);
+
     if (!c) {
-      ret = realloc(ret, sizeof(syntax*)*retl);
-      ret[retl-1] = NULL;
+      ret = realloc(ret, sizeof(syntax*)**retl);
+      ret[*retl-1] = NULL;
       syntaxes_free(ret);
-      closedir(dp);
       return NULL;
     }
-    ret = realloc(ret, sizeof(syntax*)*retl);
-    ret[retl-1] = c;
-    retl++;
+    ret = realloc(ret, sizeof(syntax*)**retl);
+    ret[*retl-1] = c;
+    *retl += 1;
   }
 
-  closedir(dp);
-  ret = realloc(ret, sizeof(syntax*)*retl);
-  ret[retl-1] = NULL;
+  ret = realloc(ret, sizeof(syntax*)**retl);
+  ret[*retl-1] = NULL;
   return ret;
 }
 

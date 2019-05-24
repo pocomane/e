@@ -79,10 +79,10 @@ avaiable:
 
 ### Writing syntax files
 
-By default, `e` creates a directory called `.estx` in the user's home
-directory (the location is overridable by providing `STXDIR` to `make install`).
-There, `e` will search for syntax files on startup. Their grammar is very
-minimal, see the C file below:
+By default, `e` creates a directory called `.config/e` in the user's home
+directory (the location is overridable by providing `CFGDIR` to `make
+install`).  There, `e` will search for a syntax file called `full.stx` on
+startup. Their grammar is very minimal, see the C file below:
 
 ```
 displayname: c
@@ -171,8 +171,8 @@ The `keys` variable works similarly. If you want to regi$ster a custom function 
 
 I've certainly seen fancier editor integrations before, but so far this seems to do the job just fine. And, considering I'm the only user of this editor, I feel like I have the right to only implement what I need in order to be productive.
 
-It follows an example [`.erc`](https://github.com/hellerve/e/blob/master/.erc)
-file in the repository that you can look at for inspiration.
+It follows an example configuration file in the repository that you can look at
+for inspiration. It must be placed in `~/.config/e/rc.lua`.
 
 ```
 et_tab(2) -- sets tab with

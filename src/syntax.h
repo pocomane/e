@@ -25,6 +25,6 @@ typedef struct syntax {
   pattern* patterns;
 } syntax;
 
-syntax** syntax_init(char*);
+syntax** syntax_init(syntax**, int *, char*);
 void syntax_free(syntax*);
 void syntaxes_free(syntax**);

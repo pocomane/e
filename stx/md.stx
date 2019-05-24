@@ -1,8 +1,0 @@
-displayname: md
-extensions: .*\.md
-            .*\.markdown
-pragma|no_sep: ```[^ ]*
-pragma|no_sep: #.*$
-number: \*\*[^(\*\*)]\*\*
-number: \*[^\*]\*
-keyword: -\s+
