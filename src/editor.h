@@ -102,16 +102,7 @@ e_context* e_setup();
 void enable_raw_mode(e_context*);
 void disable_raw_mode(e_context*);
 
-#ifdef WITH_LUA
-#include "../vendor/lua-5.3.4/src/lua.h"
-#include "../vendor/lua-5.3.4/src/lauxlib.h"
-#include "../vendor/lua-5.3.4/src/lualib.h"
+void e_insert_newline(e_context*);
+char* e_rows_to_str(e_context*, int*);
+void e_free_row(e_row*);
 
-lua_State *l;
-
-char* e_lua_eval(e_context*, char*);
-char* e_lua_run_file(e_context*, const char*);
-int   e_lua_meta_command(e_context*, const char*);
-int   e_lua_key(e_context*, int);
-void  e_lua_free();
-#endif

@@ -1,6 +1,7 @@
 #include <signal.h>
 #include <execinfo.h>
 #include "src/editor.h"
+#include "src/script.h"
 #ifdef __unix__
 #ifdef gnome
 #include <gtk/gtk.h>
@@ -34,9 +35,7 @@ void exitf() {
   disable_raw_mode(GLOB);
   e_context_free(GLOB);
   if (stx) syntaxes_free(stx);
-#ifdef WITH_LUA
-  if (l) e_lua_free();
-#endif
+  e_script_free();
 }
 
 int main(int argc, char** argv) {
@@ -59,12 +58,10 @@ int main(int argc, char** argv) {
 
   e_set_highlighting(GLOB, stx);
 
-#ifdef WITH_LUA
-  char* evald = e_lua_run_file(GLOB, (char*) STRINGIFY(ERC));
+  char* evald = e_script_run_file(GLOB, (char*) STRINGIFY(ERC));
 
   if (evald) e_set_status_msg(GLOB, evald);
-  free(evald);
-#endif
+  if (evald) free(evald);
 
   if (argc > 1) {
     e_open(GLOB, argv[1]);
