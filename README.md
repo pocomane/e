@@ -37,6 +37,24 @@ cd e
 make install # install_lua for Lua support
 ```
 
+## Troubleshooting
+
+Linux and Lua trouble `e` sometimes. If you run into any problems with compiling or linking Lua, chances are this is due to missing libraries or problematic Lua configuration. Fret not, here are some answers to common problems!
+
+On some Linux systems, you might have to first install `libreadline` — or  `libreadline-dev`, depending on your package manager. This is required by Lua.
+
+If there are still problems, you can adjust the `LUA_OPT` flag to your operating system, and see whether that changes anything. Valid values are: `aix bsd c89 freebsd generic linux macosx mingw posix solaris`. `generic` is the default. Your make call might then look like this:
+
+```
+make install_lua LUA_OPT=linux
+```
+
+If the linker complains about missing functions, you can adjust the `LUA_FLAGS` flag to your needs. On Ubuntu, for instance, it is needed that we link `libdl` and l`ibmath` into `e` - look out for this if the linker complains about dlopen and various math functions such as `floor`. This leads us to the following call:
+
+```
+make install_lua LUA_OPT=linux LUA_FLAGS="-lm -ldl"
+```
+
 ## Usage
 
 Without any customization, `e` let you to move around with arrow keys and
@@ -98,13 +116,112 @@ between the two matches should be colored (useful for e.g. multiline comments).
 
 ### Scripting through Lua
 
-The editor has scripting capabilities in Lua. Thus far I've only documented them
-in [a blog post](http://blog.veitheller.de/Editing_Revisited.html), but this
-post should give you a good overview of how to write Lua scripts for `e`. There
-is also an example [`.erc`](https://github.com/hellerve/e/blob/master/.erc)
+The first step in building Lua integration into my editor was registering the l key to open a prompt where you can type Lua code and have it be evaluated when you press enter. I've also added support for a resource file—.erc in the user's home directory by default, tweakable at compile time—, and added a small library to interact with the editor and register custom commands.
+
+There's just a handful of functions and variables to work with, but they are in fact enough to add useful and interesting features to the editor. I might add more in the future, if anyone has good arguments for adding to the list. So, without further ado, here's a complete listing of the API:
+
+```
+-- print something in the status line
+message("string")
+
+-- insert text at the current cursor position
+insert("string")
+-- insert text at the current position (appends a newline)
+insertn("string")
+-- delete a number of characters at the current position
+delete(number)
+-- move to a given cursor position
+move(number, number)
+-- open another file, closing the current file
+open("string")
+-- prompt the user for input
+string = prompt("input: %s")
+
+-- get the current cursor position
+number, number = get_coords()
+-- get the window size
+number, number = get_bounding_rect()
+-- get the editor text
+string = get_text()
+-- get tab width
+number = get_tab()
+-- set tab width
+number = set_tab()
+-- get filename
+string = get_filename()
+
+-- a table containing custom edit keys
+keys = {}
+-- a table containing custom meta commands
+meta_commands = {}
+```
+
+The `keys` and `meta_commands` variables might not be immediately obvious, so let me give you an example for both of them. Suppose you want to register a custom command in meta mode—a mode accessible by typing : and behaving similar to that mode in Vim—, called hi, you just add a function containing the actions you want to execute to meta_commands, like so:
+
+```
+meta_commands["hi"] = function()
+  insert("hi")
+  message("hi inserted")
+end
+```
+
+The next time you type `<Ctrl-p>hi<return>`, `hi` will be inserted at the current cursor position and your status bar will helpfully tell you what just happened. This system is simple, yet tremendously powerful.
+
+The `keys` variable works similarly. If you want to regi$ster a custom function that will be run whenever a given key is pressed in initial mode—normal mode for Vim users—, you just register it in the `keys` dictionary.
+
+I've certainly seen fancier editor integrations before, but so far this seems to do the job just fine. And, considering I'm the only user of this editor, I feel like I have the right to only implement what I need in order to be productive.
+
+It follows an example [`.erc`](https://github.com/hellerve/e/blob/master/.erc)
 file in the repository that you can look at for inspiration.
 
-That's it!
+```
+et_tab(2) -- sets tab with
+
+-- registers a meta command under `:hi` that inserts hi and notifies you
+meta_commands["hi"] = function()
+  insertn("hi")
+  message("hi inserted")
+end
+
+-- registers a custom key under `%` that implements word count
+keys["%"] = function()
+  s = get_text()
+  count = 0
+
+  for word in s:gmatch("%w+") do count = count + 1 end
+
+  message(count .. " words")
+end
+
+-- lists all meta commands
+function get_meta_commands()
+  res = ""
+
+  for k, _ in pairs(meta_commands) do
+    res = res .. k .. ", "
+  end
+
+  return res
+end
+
+-- lists all custom keys
+function get_keys()
+  res = ""
+
+  for k, _ in pairs(keys) do
+    res = res .. k .. ", "
+  end
+
+  return res
+end
+
+-- registers a meta command `:help` that lists all meta commands and custom keys
+meta_commands["help"] = function()
+  s = "meta commands: " .. get_meta_commands() .. "custom keys: " .. get_keys()
+
+  message(s:sub(1, -3))
+end
+```
 
 ### Tabs vs. Spaces
 
