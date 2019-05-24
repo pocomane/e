@@ -360,6 +360,16 @@ e_context* e_command(e_context* ctx) {
       free(str);
     } else if (!strcmp(c, "l") || !strcmp(c, "lua")) {
       return e_script_expression_prompt(ctx);
+    } else if (!strcmp(c, ".") || !strcmp(c, "source")) {
+      char* path = e_prompt(ctx, "File:%s", NULL);
+      if (path) {
+        int err = e_script_run_file(ctx, path);
+        if (err == -2) {
+          e_set_status_msg(ctx, "File %s not found.", path);
+        }
+        free(path);
+      }
+      return ctx;
 
   } else {
     if (e_script_meta_command(ctx, c)) {

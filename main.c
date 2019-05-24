@@ -8,9 +8,6 @@
 #endif
 #endif
 
-#define STRINGIFY2(X) #X
-#define STRINGIFY(X) STRINGIFY2(X)
-
 e_context* GLOB;
 syntax** stx;
 
@@ -58,10 +55,7 @@ int main(int argc, char** argv) {
 
   e_set_highlighting(GLOB, stx);
 
-  char* evald = e_script_run_file(GLOB, (char*) STRINGIFY(ERC));
-
-  if (evald) e_set_status_msg(GLOB, evald);
-  if (evald) free(evald);
+  int screrr = e_script_run_file(GLOB, (char*) ERC);
 
   if (argc > 1) {
     e_open(GLOB, argv[1]);
@@ -72,7 +66,9 @@ int main(int argc, char** argv) {
     GLOB->dirty = 0;
   }
 
-  e_set_status_msg(GLOB, "Press <Ctrl-p> to insert command (e.g. q to quit, s to save)");
+  if (screrr == E_SCRIPT_OK || screrr == E_SCRIPT_NOT_FOUND){
+    e_set_status_msg(GLOB, "Press <Ctrl-p> to insert command (e.g. q to quit, s to save)");
+  }
 
   while(1) {
     e_clear_screen(GLOB);

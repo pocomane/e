@@ -382,18 +382,27 @@ char* e_script_eval(e_context* ctx, char* str) {
 }
 
 
-char* e_script_run_file(e_context* ctx, const char* file) {
+int e_script_run_file(e_context* ctx, const char* file) {
+  // TODO : clean-up
   char* ret = malloc(80*sizeof(char));
   int size = 0;
   if (!l) e_initialize_lua();
 
+  FILE* t = fopen(file, "r");
+  if (!t) {
+    return E_SCRIPT_NOT_FOUND;
+  }
+  fclose(t);
+
   lua_pushlightuserdata(l, ctx);
   lua_setglobal(l, "ctx");
 
+  int err = 0;
   if (luaL_dofile(l, file)) {
-    size = snprintf(NULL, 0, "%s", lua_tostring(l, -1));
+    size = 1 + snprintf(NULL, 0, "%s", lua_tostring(l, -1));
     ret = malloc(size*sizeof(char));
     snprintf(ret, size, "%s", lua_tostring(l, -1));
+    err = 1;
   } else {
     size = 1;
     ret = malloc(size*sizeof(char));
@@ -401,7 +410,13 @@ char* e_script_run_file(e_context* ctx, const char* file) {
   lua_pop(l, lua_gettop(l));
 
   ret[size-1] = '\0';
-  return ret;
+  if (err) {
+    e_set_status_msg(ctx, "Error while executing file: %s.", ret);
+  }
+  free(ret);
+
+  if (err) return E_SCRIPT_ERROR_WHILE_RUNNING;
+  return 0;
 }
 
 
