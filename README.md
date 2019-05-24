@@ -1,8 +1,12 @@
 # e
 
-Braindead editor. Feels like Vim, only simpler. Inspired by
-[kilo](https://github.com/antirez/kilo), of course, and a large
-swath of the code is similar.
+This is a fork of [e](https://github.com/hellerve/e). The goal is to simplify
+even more the editor. Only basic features should be supported by the core
+editor. It should be possible to implemented the rest as a lua script.
+
+The origina e is a braindead editor. Inspired by
+[kilo](https://github.com/antirez/kilo), of course, and a large swath of the
+code is similar.
 
 It can be scripted through Lua.
 
@@ -12,8 +16,6 @@ It can be scripted through Lua.
 
 - Scripting through intuitive Lua interface
 - Incremental search (and replace)
-- Multiple modi (similar to Vim)
-- Mnemonic movement (feels like Vim, just different enough for you to be frustrated)
 - Limitless Undo (until memory runs out)
 - Extensible syntax highlighting
 - No global state in the library part (just in `main.c`)
@@ -35,37 +37,25 @@ cd e
 make install # install_lua for Lua support
 ```
 
-If there are any problems—particularly with Lua—, please refer to the
-[Troubleshooting](https://github.com/hellerve/e/wiki/Troubleshooting) page on
-the wiki.
-
 ## Usage
 
-There are two major modes, `init` and `edit`. `edit` mode works like a normal
-text editor would. `init` mode enables the user to navigate and do meta work,
-such as saving the file, searching, and replacing.
+Without any customization, `e` let you to move around with arrow keys and
+insert text with the letter keys. Backspace and delete keys remove charactes
+from the text.
 
-### init mode mnemonics
+Hitting `Ctrl-p` a command prompt will be shown. The following command are
+avaiable:
 
-Use `wasd` or the arrow keys for movement. Editing (backspace, etc.) works normally.
-
-- `n`: insert a line below the cursor and start editing (*n*ext) 
-- `p`: insert a line above the cursor and start editing (*p*revious)
-- `b`: jump to the *b*eginning of the line and start editing
-- `t`: jump to the end of the line and start editing (*t*erminus)
-- `h`: *h*ide a line (delete it) and add it to the system clipboard (clipboard only on Windows and OS X)
-- `c`: *c*opy a line to the system clipboard (only on Windows and OS X)
-- `v`: *v*iew (i.e. paste) the contents of the system clipboard (only on Windows and OS X)
-- `/`: incremental highlighted search
-- `r`: search and replace first occurrence
-- `R`: search and replace all occurrences
-- Space: quick save (might be prompted for a file name)
-
-In meta mode (reachable by pressing the colon character `:`), there are
-the following commands:
-
-- `s`: save and quit (might be prompted for a file name)
-- `q`: exit (will abort if the file has unsaved content)
+- `c` or `copy`: *c*opy a line to the system clipboard (only on Windows and OS X)
+- `v` or `paste`: *v*iew (i.e. paste) the contents of the system clipboard (only on Windows and OS X)
+- `/` or `search`: incremental highlighted search
+- `r` or `replace`: search and replace first occurrence
+- `R` or `replaceall`: search and replace all occurrences
+- `h` or `cutline`: *h*ide a line (delete it) and add it to the system clipboard (clipboard only on Windows and OS X)
+- `u` or `undo`: undo last change
+- `l` or `lua`: eval lua code
+- `s` or `save`: save and quit (might be prompted for a file name)
+- `q` or `quit`: exit (will abort if the file has unsaved content)
 - `!`: force exit
 - Number `n`: jump to line `n`
 

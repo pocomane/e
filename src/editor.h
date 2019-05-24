@@ -39,7 +39,6 @@ typedef struct e_context {
   int rx;
   int cy;
 
-  int mode;
   char* filename;
   int nrows;
   e_row* row;
@@ -75,11 +74,6 @@ enum e_key {
   HOME_KEY,
   END_KEY,
   DEL_KEY,
-};
-
-enum e_mode {
-  INITIAL,
-  EDIT
 };
 
 void e_clear_screen(e_context*);

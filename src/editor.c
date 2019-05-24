@@ -42,7 +42,7 @@ void e_exit() {
 
 void e_exit_prompt(e_context* ctx) {
   if (ctx->dirty) {
-    e_set_status_msg(ctx, "Unsaved content! Type :! to force or :s to save-quit.");
+    e_set_status_msg(ctx, "Unsaved content! Type <Ctrl-p>! to force or <Ctrl-p>s to save.");
     return;
   }
   e_exit();
@@ -87,13 +87,9 @@ void e_draw_rows(e_context* ctx, append_buf* ab) {
 
 
 void e_draw_status(e_context* ctx, append_buf* ab) {
-  if (ctx->mode == EDIT) {
-    color_append(YELLOW_BG, ab, "", 0);
-    color_append(BLACK, ab, "EDIT mode ", 10);
-  } else if (ctx->mode == INITIAL) {
-    color_append(BLUE_BG, ab, "", 0);
-    color_append(WHITE, ab, "INIT mode ", 10);
-  }
+
+  color_append(YELLOW_BG, ab, "", 0);
+  color_append(BLACK, ab, "EDIT mode ", 10);
 
   color_append(BLACK_BG, ab, " ", 1);
   color_append(WHITE, ab, "", 0);
@@ -301,10 +297,13 @@ int e_read_key() {
 }
 
 
-void meta(e_context* ctx) {
-  char* c = e_prompt(ctx, "Meta:%s", NULL);
+void e_insert_newline(e_context*);
 
-  if (!c) return;
+
+e_context* e_command(e_context* ctx) {
+  char* c = e_prompt(ctx, "Command: %s", NULL);
+
+  if (!c) return ctx;
 
   if (!strcmp(c, "q") || !strcmp(c, "quit")) {
     free(c);
@@ -326,26 +325,83 @@ void meta(e_context* ctx) {
     if (a <= 0) a = 1;
 
     ctx->cy = a-1;
-  }
-  else {
+
+    } else if (!strcmp(c, "/") || !strcmp(c, "find")) {
+      e_find(ctx);
+    } else if (!strcmp(c, "r") || !strcmp(c, "replace")) {
+      e_context* new = e_context_copy(ctx);
+      new->history = ctx;
+      e_replace(new);
+      return new;
+    } else if (!strcmp(c, "R") || !strcmp(c, "replaceall")) {
+      e_context* new = e_context_copy(ctx);
+      new->history = ctx;
+      e_replace_all(new);
+      return new;
+    }  else if (!strcmp(c, "h") || !strcmp(c, "cutline")) {
+      e_context* new = e_context_copy(ctx);
+      new->history = ctx;
+      e_clipboard_copy(new->row[new->cy].str);
+      if (new->nrows == 1) {
+        e_insert_row(new, 1, (char*) "", 0);
+      }
+      e_del_row(new, new->cy);
+      return new;
+    } else if (!strcmp(c, "u") || !strcmp(c, "undo")) {
+      if (ctx->history) {
+        e_context* new = ctx->history;
+        ctx->history = NULL;
+        e_context_free(ctx);
+        return new;
+      }
+      e_set_status_msg(ctx, "Already at oldest change.");
+    } else if (!strcmp(c, "c") || !strcmp(c, "copy")) {
+      e_clipboard_copy(ctx->row[ctx->cy].str);
+    } else if (!strcmp(c, "v") || !strcmp(c, "paste")) {
+      char* str = e_clipboard_paste();
+      // To prevent from crushing in linux
+      if ( !str ) { return ctx; }
+      e_context* new = e_context_copy(ctx);
+      new->history = ctx;
+      int i = 0;
+      while (str[i] != '\0') {
+        if (str[i] == '\n' || str[i] == '\r') e_insert_newline(new);
+        else e_insert_char(new, str[i]);
+        i++;
+      }
+      free(str);
+#ifdef WITH_LUA
+    } else if (!strcmp(c, "l") || !strcmp(c, "lua")) {
+      e_context* new = e_context_copy(ctx);
+      new->history = ctx;
+      char* lua_exp = e_prompt(new, "Type Lua expression: %s", NULL);
+      if (!lua_exp) return new;
+      char* evald = e_lua_eval(new, lua_exp);
+      if (evald) e_set_status_msg(new, "%s", evald);
+      free(lua_exp);
+      free(evald);
+      return new;
+#endif
+
+  } else {
 #ifdef WITH_LUA
     if (e_lua_meta_command(ctx, c)) {
 #endif
-      e_set_status_msg(ctx, "Unknown meta command.");
+      e_set_status_msg(ctx, "Unknown command.");
 #ifdef WITH_LUA
     }
 #endif
     free(c);
   }
+  return ctx;
 }
-
-
-void e_insert_newline(e_context*);
 
 
 e_context* e_edit(e_context* ctx, int c) {
   int i;
   switch (c) {
+    case CTRL('p'):
+      return e_command(ctx);
     case ARROW_UP:
     case ARROW_DOWN:
     case ARROW_RIGHT:
@@ -356,9 +412,6 @@ e_context* e_edit(e_context* ctx, int c) {
     case END_KEY:
      e_move_cursor(ctx, c);
      break;
-    case ESC:
-      ctx->mode = INITIAL;
-      break;
     case '\r':
     case '\n': {
       e_context* new = e_context_copy(ctx);
@@ -394,171 +447,9 @@ e_context* e_edit(e_context* ctx, int c) {
 }
 
 
-e_context* e_initial(e_context* ctx, int c) {
-  switch (c) {
-    case ':':
-      meta(ctx);
-      break;
-    case '/':
-      e_find(ctx);
-      break;
-    case ARROW_UP:
-    case ARROW_DOWN:
-    case ARROW_RIGHT:
-    case ARROW_LEFT:
-    case PAGE_UP:
-    case PAGE_DOWN:
-    case HOME_KEY:
-    case END_KEY:
-     e_move_cursor(ctx, c);
-     break;
-    case 'e':
-      ctx->mode = EDIT;
-      break;
-    case BACKSPACE:
-    case CTRL('h'):
-    case DEL_KEY: {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      if (c == DEL_KEY) e_move_cursor(new, ARROW_RIGHT);
-      e_del_char(new);
-      return new;
-    }
-    case 'x': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      new->cx++;
-      e_del_char(new);
-      return new;
-    }
-    case ' ':
-      e_save(ctx);
-      break;
-    case 'n': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      e_insert_row(new, ++new->cy, (char*) "", 0);
-      new->cx = 0;
-      new->rx = 0;
-      new->mode = EDIT;
-      return new;
-    }
-    case 'p': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      e_insert_row(new, new->cy, (char*) "", 0);
-      new->cx = 0;
-      new->rx = 0;
-      new->mode = EDIT;
-      return new;
-    }
-    case 'b':
-      ctx->cx = 0;
-      ctx->mode = EDIT;
-      break;
-    case 't':
-      ctx->cx = ctx->row[ctx->cy].size;
-      ctx->mode = EDIT;
-      break;
-    case 'r': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      e_replace(new);
-      return new;
-    }
-    case 'R': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      e_replace_all(new);
-      return new;
-    }
-    case 'h': {
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      e_clipboard_copy(new->row[new->cy].str);
-      if (new->nrows == 1) {
-        e_insert_row(new, 1, (char*) "", 0);
-      }
-      e_del_row(new, new->cy);
-      return new;
-    }
-    case 'u': {
-      if (ctx->history) {
-        e_context* new = ctx->history;
-        ctx->history = NULL;
-        e_context_free(ctx);
-        new->mode = INITIAL;
-        return new;
-      }
-      e_set_status_msg(ctx, "Already at oldest change.");
-      break;
-    }
-    case 'c':
-      e_clipboard_copy(ctx->row[ctx->cy].str);
-      break;
-    case 'v': {
-      char* str = e_clipboard_paste();
-      // To prevent from crushing in linux
-      if ( !str ) break;
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      int i = 0;
-      while (str[i] != '\0') {
-        if (str[i] == '\n' || str[i] == '\r') e_insert_newline(new);
-        else e_insert_char(new, str[i]);
-        i++;
-      }
-      free(str);
-      return new;
-    }
-    case 'l': {
-#ifdef WITH_LUA
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-      char* lua_exp = e_prompt(new, "Type Lua expression: %s", NULL);
-      if (!lua_exp) return new;
-      char* evald = e_lua_eval(new, lua_exp);
-      if (evald) e_set_status_msg(new, "%s", evald);
-      free(lua_exp);
-      free(evald);
-      return new;
-#else
-      e_set_status_msg(ctx, "e wasn't compiled with Lua support.");
-      break;
-#endif
-    }
-    default: {
-      if (c == ctx->up || c == ctx->down || c == ctx->left || c == ctx->right) {
-        e_move_cursor(ctx, c);
-        break;
-      }
-#ifdef WITH_LUA
-      e_context* new = e_context_copy(ctx);
-      new->history = ctx;
-
-      e_lua_key(new, c);
-
-      return new;
-#endif
-    }
-  }
-  return ctx;
-}
-
-
 e_context* e_process_key(e_context* ctx) {
   int c = e_read_key();
-
-  switch (ctx->mode) {
-    case EDIT:
-      ctx = e_edit(ctx, c);
-      break;
-    case INITIAL:
-      ctx = e_initial(ctx, c);
-      break;
-  }
-
-  return ctx;
+  return e_edit(ctx, c);
 }
 
 
@@ -902,7 +793,7 @@ char* e_prompt(e_context* ctx, const char* prompt, e_cb callback) {
 
     if (c == DEL_KEY || c == CTRL('h') || c == BACKSPACE) {
       if (buflen) buf[--buflen] = '\0';
-    } else if (c == '\x1b' || c == CTRL('c')) {
+    } else if (c == '\x1b' || c == CTRL('c') || c == CTRL('p')) {
       e_set_status_msg(ctx, "");
       if (callback) callback(ctx, buf, c);
       free(buf);
@@ -1116,7 +1007,6 @@ e_context* e_context_copy(e_context* ctx) {
   new->cx = ctx->cx;
   new->rx = ctx->rx;
   new->cy = ctx->cy;
-  new->mode = ctx->mode;
   new->tab_width = ctx->tab_width;
   new->up = ctx->up;
   new->down = ctx->down;
@@ -1214,7 +1104,6 @@ e_context*  e_setup() {
   ctx->statusmsg[0] = '\0';
   ctx->statusmsg_time = 0;
   ctx->dirty = 0;
-  ctx->mode = INITIAL;
   ctx->history = NULL;
   ctx->stx = NULL;
   ctx->stxes = NULL;

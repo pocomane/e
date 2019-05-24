@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
     GLOB->dirty = 0;
   }
 
-  e_set_status_msg(GLOB, "HELP: :q = quit");
+  e_set_status_msg(GLOB, "Press <Ctrl-p> to insert command (e.g. q to quit, s to save)");
 
   while(1) {
     e_clear_screen(GLOB);
