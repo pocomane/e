@@ -329,10 +329,12 @@ e_context* e_command(e_context* ctx) {
     } else if (!strcmp(c, "r") || !strcmp(c, "replace")) {
       e_context* new = e_history_forward(ctx);
       e_replace(new);
+      free(c);
       return new;
     } else if (!strcmp(c, "R") || !strcmp(c, "replaceall")) {
       e_context* new = e_history_forward(ctx);
       e_replace_all(new);
+      free(c);
       return new;
     }  else if (!strcmp(c, "h") || !strcmp(c, "cutline")) {
       e_context* new = e_history_forward(ctx);
@@ -341,15 +343,20 @@ e_context* e_command(e_context* ctx) {
         e_insert_row(new, 1, (char*) "", 0);
       }
       e_del_row(new, new->cy);
+      free(c);
       return new;
     } else if (!strcmp(c, "u") || !strcmp(c, "undo")) {
+      free(c);
       return e_history_backward(ctx);
     } else if (!strcmp(c, "c") || !strcmp(c, "copy")) {
       e_clipboard_copy(ctx->row[ctx->cy].str);
     } else if (!strcmp(c, "v") || !strcmp(c, "paste")) {
       char* str = e_clipboard_paste();
       // To prevent from crushing in linux
-      if ( !str ) { return ctx; }
+      if ( !str ) {
+        free(c);
+        return ctx;
+      }
       e_context* new = e_history_forward(ctx);
       int i = 0;
       while (str[i] != '\0') {
@@ -359,6 +366,7 @@ e_context* e_command(e_context* ctx) {
       }
       free(str);
     } else if (!strcmp(c, "l") || !strcmp(c, "lua")) {
+      free(c);
       return e_script_expression_prompt(ctx);
     } else if (!strcmp(c, ".") || !strcmp(c, "source")) {
       char* path = e_prompt(ctx, "File:%s", NULL);
@@ -369,10 +377,12 @@ e_context* e_command(e_context* ctx) {
         }
         free(path);
       }
+      free(c);
       return ctx;
 
   } else {
-    if (e_script_meta_command(ctx, c)) {
+    int screrr = e_script_meta_command(ctx, c);
+    if (screrr) {
       e_set_status_msg(ctx, "Unknown command.");
     }
     free(c);
@@ -754,6 +764,7 @@ void e_open(e_context* ctx, const char* filename) {
     line = NULL;
   }
   free(line);
+  free(tab);
   fclose(fp);
 
   ctx->dirty = 0;
@@ -976,6 +987,7 @@ void e_context_free(e_context* ctx) {
   free(ctx->row);
   free(ctx->filename);
   if (ctx->history) e_context_free(ctx->history);
+  //if (ctx->stxes) syntaxes_free((syntax**)ctx->stxes);
   free(ctx);
 }
 

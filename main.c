@@ -32,11 +32,11 @@ void handler(int sig) {
 
 void exitf() {
   disable_raw_mode(GLOB);
-  e_context_free(GLOB);
   if (GLOB && GLOB->stxes) {
     syntaxes_free((syntax**)GLOB->stxes);
     GLOB->stxn = 0;
   }
+  e_context_free(GLOB);
   e_script_free();
 }
 
