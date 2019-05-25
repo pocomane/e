@@ -8,9 +8,10 @@
 #endif
 #endif
 
+#include "defaultsyntax.h"
+
+
 e_context* GLOB = NULL;
-syntax** stx = NULL;
-int stxn = 0;
 
 
 // This does not free.
@@ -32,9 +33,9 @@ void handler(int sig) {
 void exitf() {
   disable_raw_mode(GLOB);
   e_context_free(GLOB);
-  if (stx) {
-    syntaxes_free(stx);
-    stxn = 0;
+  if (GLOB && GLOB->stxes) {
+    syntaxes_free((syntax**)GLOB->stxes);
+    GLOB->stxn = 0;
   }
   e_script_free();
 }
@@ -45,19 +46,19 @@ int main(int argc, char** argv) {
   gtk_init(&argc, &argv);
 #endif
 #endif
-	
-  stx = syntax_init(stx, &stxn, (char*) CFGDIR "/full.stx");
-  if (!stx) {
-    fputs("Failed to initialize e: couldn’t read syntax files.\n", stderr);
+
+  GLOB = e_setup();
+  GLOB->stxes = syntax_init(GLOB->stxes, &GLOB->stxn, (char*)"embedded_stx", DEFAULT_STX);
+  if (!GLOB->stxes) {
+    e_set_status_msg(GLOB, "Failed to initialize e: couldn’t read syntax files.");
     return 1;
   }
-  GLOB = e_setup();
 
   signal(SIGSEGV, handler);
   signal(SIGABRT, handler);
   atexit(exitf);
 
-  e_set_highlighting(GLOB, stx);
+  e_set_highlighting(GLOB, (syntax**)GLOB->stxes);
 
   int screrr = e_script_run_file(GLOB, (char*) CFGDIR "/rc.lua");
 

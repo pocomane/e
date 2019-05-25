@@ -1,4 +1,6 @@
 
+add_syntax[[
+
 displayname: carp
 extensions: .*\.carp$
 comment|no_sep: ;.*$
@@ -114,4 +116,7 @@ extensions: .*\.stx
 keyword|no_sep: (displayname|extensions)
 type|no_sep: (type|keyword|pragma|predefined|comment|match|number|string)
 comment|no_sep: no_sep
+
+
+]]
 

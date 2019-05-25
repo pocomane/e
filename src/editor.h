@@ -52,12 +52,14 @@ typedef struct e_context {
 
   syntax* stx;
   syntax** stxes;
+  int stxn;
 
   unsigned short tab_width;
   char up;
   char down;
   char left;
   char right;
+
 } e_context;
 
 typedef void (*e_cb)(e_context*, char*, int);

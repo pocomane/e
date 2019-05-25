@@ -1019,6 +1019,7 @@ e_context* e_history_forward(e_context* ctx) {
 
   new->stx = ctx->stx;
   new->stxes = ctx->stxes;
+  new->stxn = ctx->stxn;
 
 
   new->history = ctx;
@@ -1102,6 +1103,7 @@ e_context*  e_setup() {
   ctx->history = NULL;
   ctx->stx = NULL;
   ctx->stxes = NULL;
+  ctx->stxn = 0;
   ctx->tab_width = 4;
   ctx->up = 'w';
   ctx->down = 's';

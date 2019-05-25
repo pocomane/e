@@ -4,9 +4,10 @@ This is a fork of [e](https://github.com/hellerve/e). The goal is to simplify
 even more the editor. Only basic features should be supported by the core
 editor. It should be possible to implemented the rest as a lua script.
 
-The origina e is a braindead editor. Inspired by
-[kilo](https://github.com/antirez/kilo), of course, and a large swath of the
-code is similar.
+The original `e` is a braindead editor by [Veit
+Heller](http://blog.veitheller.de). It is inspired by
+[kilo](https://github.com/antirez/kilo), and a large swath of the code is
+similar.
 
 It can be scripted through Lua.
 
@@ -22,12 +23,11 @@ It can be scripted through Lua.
 - Can be used as a library
 - Ships with syntax highlighting for
   - C/C++ (stable)
+  - Markdown (unfinished)
   - Python (experimental)
   - JavaScript (experimental)
   - Go (experimental)
   - Haskell (experimental)
-  - Carp (experimental)
-  - Markdown (unfinished)
 
 ## Installation
 
@@ -77,44 +77,13 @@ avaiable:
 - `!`: force exit
 - Number `n`: jump to line `n`
 
-### Writing syntax files
+### Scripting through Lua
 
 By default, `e` creates a directory called `.config/e` in the user's home
 directory (the location is overridable by providing `CFGDIR` to `make
-install`).  There, `e` will search for a syntax file called `full.stx` on
-startup. Their grammar is very minimal, see the C file below:
+install`).  There, `e` will search for a startup scipt file called `rc.lua`.
 
-```
-displayname: c
-extensions: .*\.cpp$
-            .*\.hpp$
-            .*\.c$
-            .*\.h$
-comment|no_sep: //.*$
-keyword: (restrict|switch|if|while|for|break|continue|return|else|try|catch|else|struct|union|class|typedef|static|enum|case|asm|default|delete|do|explicit|export|extern|inline|namespace|new|public|private|protected|sizeof|template|this|typedef|typeid|typename|using|virtual|friend|goto)
-type: (auto|bool|char|const|double|float|inline|int|mutable|register|short|unsigned|volatile|void|int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t|size_t|ssize_t|time_t)
-comment|no_sep: /\*.*\*/
-comment|no_sep: /\*.*
-                 .*\*/
-pragma: \s*#(include|pragma|define|undef) .*$
-predefined: (NULL|stdout|stderr)
-pragma: \s*#(ifdef|ifndef|if) .*$
-pragma: \s*#(endif)
-string|no_sep: "([^\\\"]|\\.)*"
-string|no_sep: '([^\\\']|\\.)'
-number: [+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)[fl]?
-```
-
-`displayname` is the string displayed at the bottom of `e`. `extensions`
-is a list of regexes to match the filenames. Highlighting keys are `comment`,
-`keyword`, `type`, `pragma`, `string`, `number`, and `predefined`. By appending
-`|no_sep`, the user signals to `e` that no separator is needed, i.e. highlighting
-works even if the matched string is part of a longer word. The values are regexes.
-
-If you provide a second regex (must by divided by a newline), `e` assumes that everything
-between the two matches should be colored (useful for e.g. multiline comments).
-
-### Scripting through Lua
+It uses an embeded lua VM. It follows a description of how it was integrated.
 
 The first step in building Lua integration into my editor was registering the l key to open a prompt where you can type Lua code and have it be evaluated when you press enter. I've also added support for a resource file—.erc in the user's home directory by default, tweakable at compile time—, and added a small library to interact with the editor and register custom commands.
 
@@ -154,6 +123,9 @@ string = get_filename()
 keys = {}
 -- a table containing custom meta commands
 meta_commands = {}
+
+-- add syntax highlighting
+add_syntax("string")
 ```
 
 The `keys` and `meta_commands` variables might not be immediately obvious, so let me give you an example for both of them. Suppose you want to register a custom command in meta mode—a mode accessible by typing : and behaving similar to that mode in Vim—, called hi, you just add a function containing the actions you want to execute to meta_commands, like so:
@@ -222,6 +194,49 @@ meta_commands["help"] = function()
   message(s:sub(1, -3))
 end
 ```
+
+## Adding syntax
+
+The core editor only supports `c` and `markdown` syntax. Other syntax
+highlighting can be added using the lua function `add_syntax`. It accenpt a
+string as parameter, in the following format:
+
+```
+add_syntax [[
+
+displayname: c
+extensions: .*\.cpp$
+            .*\.hpp$
+            .*\.c$
+            .*\.h$
+comment|no_sep: //.*$
+keyword: (restrict|switch|if|while|for|break|continue|return|else|try|catch|else|struct|union|class|typedef|static|enum|case|asm|default|delete|do|explicit|export|extern|inline|namespace|new|public|private|protected|sizeof|template|this|typedef|typeid|typename|using|virtual|friend|goto)
+type: (auto|bool|char|const|double|float|inline|int|mutable|register|short|unsigned|volatile|void|int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t|size_t|ssize_t|time_t)
+comment|no_sep: /\*.*\*/
+comment|no_sep: /\*.*
+                 .*\*/
+pragma: \s*#(include|pragma|define|undef) .*$
+predefined: (NULL|stdout|stderr)
+pragma: \s*#(ifdef|ifndef|if) .*$
+pragma: \s*#(endif)
+string|no_sep: "([^\\\"]|\\.)*"
+string|no_sep: '([^\\\']|\\.)'
+number: [+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)[fl]?
+
+]]
+```
+
+`displayname` is the string displayed at the bottom of `e`. `extensions`
+is a list of regexes to match the filenames. Highlighting keys are `comment`,
+`keyword`, `type`, `pragma`, `string`, `number`, and `predefined`. By appending
+`|no_sep`, the user signals to `e` that no separator is needed, i.e. highlighting
+works even if the matched string is part of a longer word. The values are regexes.
+
+If you provide a second regex (must by divided by a newline), `e` assumes that everything
+between the two matches should be colored (useful for e.g. multiline comments).
+
+To specify two or more syntaxes a single `add_syntax` call, the different sections
+must be separated by a line with the `split:` statement.
 
 ### Tabs vs. Spaces
 

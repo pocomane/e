@@ -23,19 +23,50 @@ int syntax_lookup_color(char* key) {
   return HL_NORMAL;
 }
 
-int syntax_read_extensions(syntax* c, FILE* f, char* name, int lineno,
+
+char syntax_current_char(char** data) {
+  return data && *data ? **data : '\0';
+}
+
+
+
+char* syntax_next_line(char** data) {
+  static char xline[MAX_LINE_WIDTH];
+  char* line = NULL;
+  if (data && *data) {
+    while (1) {
+      if (**data == '\0') {
+        *data = NULL;
+        break;
+      }
+      if (!line) line = *data;
+      if (**data == '\n') {
+        **data = '\0';
+        *data += 1;
+        break;
+      }
+      *data += 1;
+    }
+  }
+  if (!line) return NULL;
+  // TODO : avoid this copy!
+  strncpy(xline,line,MAX_LINE_WIDTH);
+  return xline;
+}
+
+
+
+int syntax_read_extensions(syntax* c, char** data, char* name, int lineno,
                            char* line) {
   int regl = 1;
-  size_t ln;
   regex_t* reg = malloc(sizeof(regex_t));
   int err;
 
   regcomp(reg, line, REG_EXTENDED);
 
-  while (fpeek(f) == ' ' || fpeek(f) == '\t') {
-    if (fgets(line, MAX_LINE_WIDTH, f)) {
-      ln = strlen(line)-1;
-      line[ln] = '\0'; // replace newline
+  while (syntax_current_char(data) == ' ' || syntax_current_char(data) == '\t') {
+    line = syntax_next_line(data);
+    if (line != NULL) {
       line = strtriml(line);
       reg = realloc(reg, sizeof(regex_t) * ++regl);
       err = regcomp(&reg[regl-1], line, REG_EXTENDED);
@@ -55,10 +86,9 @@ int syntax_read_extensions(syntax* c, FILE* f, char* name, int lineno,
 }
 
 
-int syntax_read_pattern(syntax* c, FILE* f, char* name, int lineno,
+int syntax_read_pattern(syntax* c, char** data, char* name, int lineno,
                         char* key, char* value) {
   pattern* pat = malloc(sizeof(pattern));
-  char line[MAX_LINE_WIDTH];
   size_t ln;
   int err;
   key = strtok(key, "|");
@@ -77,20 +107,23 @@ int syntax_read_pattern(syntax* c, FILE* f, char* name, int lineno,
     return 1;
   }
 
-  if ((fpeek(f) == ' ' || fpeek(f) == '\t') && fgets(line, MAX_LINE_WIDTH, f)) {
-    char* l = strtriml(line);
-    ln = strlen(l)-1;
-    memmove(l+1, l, ln);
-    l[0] = '^';
-    err = regcomp(&pat->closing, l, REG_EXTENDED);
-    if (err) {
-      compile_err(err, l, &pat->closing, name, lineno);
-      regfree(&pat->pattern);
-      regfree(&pat->closing);
-      free(pat);
-      return 1;
+  if (syntax_current_char(data) == ' ' || syntax_current_char(data) == '\t') {
+    char* line = syntax_next_line(data);
+    if (line != NULL) {
+      char* l = strtriml(line);
+      ln = strlen(l);
+      memmove(l+1, l, ln);
+      l[0] = '^';
+      err = regcomp(&pat->closing, l, REG_EXTENDED);
+      if (err) {
+        compile_err(err, l, &pat->closing, name, lineno);
+        regfree(&pat->pattern);
+        regfree(&pat->closing);
+        free(pat);
+        return 1;
+      }
+      pat->multiline = 1;
     }
-    pat->multiline = 1;
   }
 
   c->npatterns++;
@@ -101,63 +134,7 @@ int syntax_read_pattern(syntax* c, FILE* f, char* name, int lineno,
 }
 
 
-syntax* syntax_read_file(char* fname) {
-  FILE* f;
-  syntax* c;
-  char* key;
-  char* value;
-  char* line = malloc(MAX_LINE_WIDTH);
-  size_t ln;
-  int lineno = 0;
-
-  f = fopen(fname, "r");
-
-  if (!f) return NULL;
-
-  c = malloc(sizeof(syntax));
-  c->patterns = NULL;
-  c->ftype = NULL;
-  c->filematch = NULL;
-  c->npatterns = 0;
-
-  while (fgets(line, MAX_LINE_WIDTH, f)) {
-    ln = strlen(line)-1;
-    if (ln == -1) continue;
-    lineno++;
-    line[ln] = '\0'; // replace newline
-    key = strtok(line, ":");
-    value = strtok(NULL, ":");
-    if (!strncmp(key, "displayname", 11)) {
-      c->ftype = strdup(strtriml(value));
-    } else if (!strncmp(key, "extensions", 10)) {
-      if (syntax_read_extensions(c, f, fname, lineno, strtriml(value))) {
-        fclose(f);
-        free(line);
-        syntax_free(c);
-        return NULL;
-      }
-    } else {
-      if (value) {
-        if (syntax_read_pattern(c, f, fname, lineno, key, strtriml(value))) {
-          fclose(f);
-          free(line);
-          syntax_free(c);
-          return NULL;
-        }
-      }
-    }
-  }
-
-  fclose(f);
-  free(line);
-
-  return c;
-}
-
-
-syntax** syntax_init(syntax** ret, int *retl, char* path) {
-
-  // TODO : CLEAN-UP !!!
+syntax** syntax_init(syntax** ret, int *retl, char* name, char* data) {
 
   if (ret == 0 || *retl == 0){
     *retl = 1;
@@ -165,71 +142,47 @@ syntax** syntax_init(syntax** ret, int *retl, char* path) {
   }
   syntax* c;
 
-  FILE* f = fopen(path, "r");
-
-  while (f != NULL) {
+  while (data != NULL) {
 
     c = NULL;
-    do {
-      char* key;
-      char* value;
-      char* line = malloc(MAX_LINE_WIDTH);
-      size_t ln;
-      int lineno = 0;
 
-      if (!f) { c = NULL; break; }
+    int lineno = 0;
 
-      c = malloc(sizeof(syntax));
-      c->patterns = NULL;
-      c->ftype = NULL;
-      c->filematch = NULL;
-      c->npatterns = 0;
+    c = malloc(sizeof(syntax));
+    c->patterns = NULL;
+    c->ftype = NULL;
+    c->filematch = NULL;
+    c->npatterns = 0;
 
-      void * fg;
-      while (1) {
-        fg = fgets(line, MAX_LINE_WIDTH, f);
-        if (!fg) {
+    while (1) {
+      lineno++;
+      char* line = syntax_next_line(&data);
+      if (line == NULL) break;
+      if (*line == '\0') continue;
+
+      char* key = strtok(line, ":");
+      if (key && !strncmp(key, "split", 5)) {
+        break;
+      }
+      char* value = strtok(NULL, ":");
+      if (key && !strncmp(key, "displayname", 11)) {
+        c->ftype = strdup(strtriml(value));
+      } else if (key && !strncmp(key, "extensions", 10)) {
+        if (syntax_read_extensions(c, &data, name, lineno, strtriml(value))) {
+          syntax_free(c);
+          c = NULL;
           break;
         }
-
-        ln = strlen(line)-1;
-        if (ln == -1) continue;
-        lineno++;
-        line[ln] = '\0'; // replace newline
-        key = strtok(line, ":");
-        if (key && !strncmp(key, "split", 5)) {
-          break;
-        }
-        value = strtok(NULL, ":");
-        if (key && !strncmp(key, "displayname", 11)) {
-          c->ftype = strdup(strtriml(value));
-        } else if (key && !strncmp(key, "extensions", 10)) {
-          if (syntax_read_extensions(c, f, path, lineno, strtriml(value))) {
-            fclose(f);
-            free(line);
+      } else {
+        if (value) {
+          if (syntax_read_pattern(c, &data, name, lineno, key, strtriml(value))) {
             syntax_free(c);
             c = NULL;
             break;
           }
-        } else {
-          if (value) {
-            if (syntax_read_pattern(c, f, path, lineno, key, strtriml(value))) {
-              fclose(f);
-              free(line);
-              syntax_free(c);
-              c = NULL;
-              break;
-            }
-          }
         }
       }
-
-      free(line);
-      if (!fg) {
-        fclose(f);
-        f = NULL;
-      }
-    } while(0);
+    }
 
     if (!c) {
       ret = realloc(ret, sizeof(syntax*)**retl);

@@ -33,7 +33,7 @@ lua:
 
 syntax:
 	mkdir -p $(CFGDIR)
-	cp full.stx $(CFGDIR)
+	cp rc.lua $(CFGDIR)
 
 install: all
 	install $(BUILDDIR)$(TARGET) $(PREFIX)$(TARGET)

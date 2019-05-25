@@ -295,6 +295,28 @@ int e_lua_get_down(lua_State* l) {
 }
 
 
+int e_lua_add_syntax(lua_State* l) {
+
+  syntax** stx;
+  if (lua_gettop(l) == 1) {
+    const char* syntax = lua_tostring(l, 1);
+    char* dat = strdup(syntax);
+
+    lua_getglobal(l, "ctx");
+    e_context* ctx = lua_touserdata(l, lua_gettop(l));
+
+    stx = syntax_init(ctx->stxes, &ctx->stxn, (char*)"lua_stx", dat);
+    free(dat);
+    if (!stx) {
+      luaL_error(l, "Error while parsing syntax."); // Never returns
+      return 0;
+    }
+    ctx->stxes = stx;
+  }
+  return 0;
+}
+
+
 #undef e_lua_get_move
 
 
@@ -348,6 +370,8 @@ void e_initialize_lua() {
   lua_setglobal(l, "keys");
   lua_newtable(l);
   lua_setglobal(l, "meta_commands");
+  lua_pushcfunction(l, e_lua_add_syntax);
+  lua_setglobal(l, "add_syntax");
 }
 
 char* e_script_eval(e_context* ctx, char* str) {
@@ -480,4 +504,6 @@ int e_script_key(e_context* ctx, int key) {
 void e_script_free() {
   if (l) lua_close(l);
 }
+
+
 #endif
