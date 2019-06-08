@@ -214,9 +214,11 @@ end
 
 ## Adding syntax
 
-The core editor only supports `c` and `markdown` syntax. Other syntax
-highlighting can be added using the lua function `add_syntax`. It accenpt a
-string as parameter, in the following format:
+The core editor only supports `c` and `markdown` syntax highlighting. Other
+syntax can be added through the lua script. The provided `rc.lua` contains some
+exmaples.
+
+To add a new syntax, the lua fuction `add_syntax` must be used:
 
 ```
 add_syntax [[
