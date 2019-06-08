@@ -39,17 +39,28 @@ make install # install_lua for Lua support
 
 ## Troubleshooting
 
-Linux and Lua trouble `e` sometimes. If you run into any problems with compiling or linking Lua, chances are this is due to missing libraries or problematic Lua configuration. Fret not, here are some answers to common problems!
+Linux and Lua trouble `e` sometimes. If you run into any problems with
+compiling or linking Lua, chances are this is due to missing libraries or
+problematic Lua configuration. Fret not, here are some answers to common
+problems!
 
-On some Linux systems, you might have to first install `libreadline` — or  `libreadline-dev`, depending on your package manager. This is required by Lua.
+On some Linux systems, you might have to first install `libreadline` — or
+`libreadline-dev`, depending on your package manager. This is required by Lua.
 
-If there are still problems, you can adjust the `LUA_OPT` flag to your operating system, and see whether that changes anything. Valid values are: `aix bsd c89 freebsd generic linux macosx mingw posix solaris`. `generic` is the default. Your make call might then look like this:
+If there are still problems, you can adjust the `LUA_OPT` flag to your
+operating system, and see whether that changes anything. Valid values are: `aix
+bsd c89 freebsd generic linux macosx mingw posix solaris`. `generic` is the
+default. Your make call might then look like this:
 
 ```
 make install_lua LUA_OPT=linux
 ```
 
-If the linker complains about missing functions, you can adjust the `LUA_FLAGS` flag to your needs. On Ubuntu, for instance, it is needed that we link `libdl` and l`ibmath` into `e` - look out for this if the linker complains about dlopen and various math functions such as `floor`. This leads us to the following call:
+If the linker complains about missing functions, you can adjust the `LUA_FLAGS`
+flag to your needs. On Ubuntu, for instance, it is needed that we link `libdl`
+and l`ibmath` into `e` - look out for this if the linker complains about dlopen
+and various math functions such as `floor`. This leads us to the following
+call:
 
 ```
 make install_lua LUA_OPT=linux LUA_FLAGS="-lm -ldl"
@@ -85,9 +96,14 @@ install`).  There, `e` will search for a startup scipt file called `rc.lua`.
 
 It uses an embeded lua VM. It follows a description of how it was integrated.
 
-The first step in building Lua integration into my editor was registering the l key to open a prompt where you can type Lua code and have it be evaluated when you press enter. I've also added support for a resource file—.erc in the user's home directory by default, tweakable at compile time—, and added a small library to interact with the editor and register custom commands.
+The lua integratin is based on the `lua` metacommand (`<Ctrl-p>lua<return>`): it
+will prompt for a lua expression to be executed. The `rc.lua` file is interpreted
+as a lua script too.
 
-There's just a handful of functions and variables to work with, but they are in fact enough to add useful and interesting features to the editor. I might add more in the future, if anyone has good arguments for adding to the list. So, without further ado, here's a complete listing of the API:
+There's just a handful of functions and variables to work with, but they are in
+fact enough to add useful and interesting features to the editor. More might be
+added in the future. So, without further ado, here's a complete listing of the
+API:
 
 ```
 -- print something in the status line
@@ -128,7 +144,10 @@ meta_commands = {}
 add_syntax("string")
 ```
 
-The `keys` and `meta_commands` variables might not be immediately obvious, so let me give you an example for both of them. Suppose you want to register a custom command in meta mode—a mode accessible by typing : and behaving similar to that mode in Vim—, called hi, you just add a function containing the actions you want to execute to meta_commands, like so:
+The `meta_commands` variables might not be immediately obvious. Suppose you
+want to register a custom command in meta mode—a mode accessible by typing :
+and behaving similar to that mode in Vim—, called hi, you just add a function
+containing the actions you want to execute to meta_commands, like so:
 
 ```
 meta_commands["hi"] = function()
@@ -137,11 +156,9 @@ meta_commands["hi"] = function()
 end
 ```
 
-The next time you type `<Ctrl-p>hi<return>`, `hi` will be inserted at the current cursor position and your status bar will helpfully tell you what just happened. This system is simple, yet tremendously powerful.
-
-The `keys` variable works similarly. If you want to regi$ster a custom function that will be run whenever a given key is pressed in initial mode—normal mode for Vim users—, you just register it in the `keys` dictionary.
-
-I've certainly seen fancier editor integrations before, but so far this seems to do the job just fine. And, considering I'm the only user of this editor, I feel like I have the right to only implement what I need in order to be productive.
+The next time you type `<Ctrl-p>hi<return>`, `hi` will be inserted at the
+current cursor position and your status bar will helpfully tell you what just
+happened. This system is simple, yet tremendously powerful.
 
 It follows an example configuration file in the repository that you can look at
 for inspiration. It must be placed in `~/.config/e/rc.lua`.
@@ -232,11 +249,12 @@ is a list of regexes to match the filenames. Highlighting keys are `comment`,
 `|no_sep`, the user signals to `e` that no separator is needed, i.e. highlighting
 works even if the matched string is part of a longer word. The values are regexes.
 
-If you provide a second regex (must by divided by a newline), `e` assumes that everything
-between the two matches should be colored (useful for e.g. multiline comments).
+If you provide a second regex (must by divided by a newline), `e` assumes that
+everything between the two matches should be colored (useful for e.g. multiline
+comments).
 
-To specify two or more syntaxes a single `add_syntax` call, the different sections
-must be separated by a line with the `split:` statement.
+To specify two or more syntaxes a single `add_syntax` call, the different
+sections must be separated by a line with the `split:` statement.
 
 ### Tabs vs. Spaces
 
